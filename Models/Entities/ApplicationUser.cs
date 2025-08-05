@@ -6,6 +6,6 @@ namespace EmployeeApi.Models.Entities
     {
         public string? FullName { get; set; }
         public string? TwoFactorSecret { get; set; }
-        public bool Enabled { get; set; }
+        public bool Verification_Done { get; set; }
     }
 }

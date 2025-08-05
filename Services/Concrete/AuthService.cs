@@ -28,13 +28,13 @@ namespace EmployeeApi.Services.Concrete
             _validateToken = validateToken;
             _otpService = otpService;
         }
-        public async Task<QR_Response> Setup(string email)
+        public async Task<QR_Response> Generate_QR(string email)
         {
             var user = await _userManager.FindByEmailAsync(email);
             if (user == null)
                 throw new Exception("User not found!!");
 
-            if (user.Enabled)
+            if (!user.Verification_Done)
             {
                 var (secret, url) = _otpService.GenerateQrCode(user.Email, "EmployeeApi");
                 user.TwoFactorSecret = secret;
@@ -44,48 +44,45 @@ namespace EmployeeApi.Services.Concrete
                 return new QR_Response
                 {
                     Success = true,
-                    Message = "Scan this QR code in Google Authenticator.",
-                    TotpUrl = url
+                    Message = "Use this URL to generate QR or directly use this Manual_Code to generate code in Authenticator",
+                    Url = url,
+                    Manual_Code = secret
                 };
             }
             return new QR_Response
             {
-                Success = false,
-                Message = "Enable 2FA to generate QR",
-                TotpUrl = null
+                Message = "URL already generated, Please verify using Verification api",
             };
         }
 
-        public async Task<QR_Response> Enable_Disable_QR(Enable_Disable_Request request)
+        public async Task<QR_Response> Enable_Disable_QR(string email, string option)
         {
-            var user = await _userManager.FindByEmailAsync(request.Email);
+            var user = await _userManager.FindByEmailAsync(email);
             //if (user == null || !_otpService.ValidateCode(user.TwoFactorSecret, model.Code))
-            //throw new Exception("Invalid credentials");
+            //    throw new Exception("Invalid credentials");
 
             if (user == null)
                 throw new Exception("User not Found!!!");
 
-
-            if (request.Enabled)
+            //str1.Equals(str2, StringComparison.OrdinalIgnoreCase);
+            if (option.Equals("enable", StringComparison.OrdinalIgnoreCase))
             {
                 user.TwoFactorEnabled = true;
-                user.Enabled = true;
+                user.Verification_Done = false;
                 await _userManager.UpdateAsync(user);
 
                 return new QR_Response
                 {
-                    Success = true,
                     Message = "2FA successfully Enabled"
                 };
             }
             
             user.TwoFactorEnabled = false;
-            user.Enabled = false;
+            user.Verification_Done = false;
             await _userManager.UpdateAsync(user);
 
             return new QR_Response
             {
-                Success = true,
                 Message = "2FA sucessfully disabled"
             };
         }
@@ -108,7 +105,6 @@ namespace EmployeeApi.Services.Concrete
             return new AuthResponse { 
                 Token = token, 
                 Email = request.Email,
-                Role = request.Role 
             };
         }
 
@@ -118,42 +114,34 @@ namespace EmployeeApi.Services.Concrete
             if (user == null || !await _userManager.CheckPasswordAsync(user, request.Password))
                 throw new Exception("Invalid credentials");
 
-            var enabled = false;
             var roles = await _userManager.GetRolesAsync(user);
 
             if (user.TwoFactorEnabled)
             {
-                if(user.Enabled)
-                    enabled = true;
                 return new AuthResponse 
                 {
-                    Message = "Login using login-2FA api",
                     Email = request.Email,
-                    Role = roles.FirstOrDefault(),
-                    Enabled = enabled
+                    VerificationDone = user.Verification_Done
                 };
             }
 
             var token = _tokenGenerator.GenerateToken(user, roles);
             var refreshToken = _refreshTokenGenerator.GenerateRefreshToken(user, roles);
 
-            return new AuthResponse {
-                Message = "Successfully Logged In",
+            return new AuthResponse
+            {
                 Token = token, 
                 RefreshToken = refreshToken, 
-                Email = user.Email, 
-                Role = roles.FirstOrDefault(),
-                Enabled = enabled
             };
         }
 
-        public async Task<AuthResponse> Login_2FA(Verify2FARequest model)
+        public async Task<AuthResponse> Verification(Verify2FARequest model)
         {
             var user = await _userManager.FindByEmailAsync(model.Email);
             if (user == null ||!_otpService.ValidateCode(user.TwoFactorSecret, model.Code))
                 throw new Exception("Invalid credentials");
 
-            user.Enabled = false;
+            user.Verification_Done = true;
             await _userManager.UpdateAsync(user);
 
             var roles = await _userManager.GetRolesAsync(user);
@@ -161,12 +149,8 @@ namespace EmployeeApi.Services.Concrete
             var refreshToken = _refreshTokenGenerator.GenerateRefreshToken(user, roles);
 
             return new AuthResponse { 
-                Message ="Successfully Logged In",
                 Token = token, 
-                RefreshToken = refreshToken,
-                Email = user.Email, 
-                Role = roles.FirstOrDefault() ,
-                Enabled = false
+                RefreshToken = refreshToken
             };
         }
 
@@ -207,7 +191,6 @@ namespace EmployeeApi.Services.Concrete
                 Token = newAccessToken,
                 RefreshToken = tokenModel.RefreshToken,
                 Email = user.Email,
-                Role = roles.FirstOrDefault()
             };
         }
 

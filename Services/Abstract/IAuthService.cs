@@ -6,12 +6,12 @@ namespace EmployeeApi.Services.Abstract
 {
     public interface IAuthService
     {
-        Task<QR_Response> Setup(string email);
-        Task<QR_Response> Enable_Disable_QR(Enable_Disable_Request request);
+        Task<QR_Response> Generate_QR(string email);
+        Task<QR_Response> Enable_Disable_QR(string email, string option);
 
         Task<AuthResponse> RegisterAsync(RegisterRequest request);
         Task<AuthResponse> LoginAsync(LoginRequest request);
-        Task<AuthResponse> Login_2FA(Verify2FARequest model);
+        Task<AuthResponse> Verification(Verify2FARequest model);
         Task<AuthResponse> RefreshToken(TokenModel tokenModel);
 
     }

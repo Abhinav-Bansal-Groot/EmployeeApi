@@ -1,6 +1,7 @@
 ﻿using EmployeeApi.Controllers;
 using EmployeeApi.Models.Entities;
 using EmployeeApi.Models.Requests;
+using EmployeeApi.Models.Responses;
 using EmployeeApi.Services.Abstract;
 using Microsoft.AspNetCore.Mvc;
 
@@ -15,17 +16,17 @@ public class AuthController : BaseController
         _authService = authService;
     }
 
-    [HttpPost("2fa/qr-setup")]
-    public async Task<IActionResult> QR_Setup(string email)
+    [HttpPost("2fa/{email}/{option}")]
+    public async Task<IActionResult> QR_Enable_Disable([FromRoute]string email, [FromRoute]string option)
     {
-        var result = await _authService.Setup(email);
+        var result = await _authService.Enable_Disable_QR(email, option);
         return HandleResponse(result);
     }
 
-    [HttpPost("2fa/QR_Enable_Disable")]
-    public async Task<IActionResult> QR_Enable_Disable(Enable_Disable_Request request)
+    [HttpPost("2fa/generate")]
+    public async Task<IActionResult> Generate_QR(string email)
     {
-        var result = await _authService.Enable_Disable_QR(request);
+        var result = await _authService.Generate_QR(email);
         return HandleResponse(result);
     }
 
@@ -40,13 +41,17 @@ public class AuthController : BaseController
     public async Task<IActionResult> Login(LoginRequest request)
     {
         var result = await _authService.LoginAsync(request);
-        return HandleResponse(result);
+        return Ok(new CommonResponse<AuthResponse>
+        {
+            Status = 200,
+            Data = result
+        });
     }
 
-    [HttpPost("auth/login-2fa")]
-    public async Task<IActionResult> Verify2FA(Verify2FARequest request)
+    [HttpPost("auth/verification")]
+    public async Task<IActionResult> Verification(Verify2FARequest request)
     {
-        var result = await _authService.Login_2FA(request);
+        var result = await _authService.Verification(request);
         return HandleResponse(result);
     }
 
